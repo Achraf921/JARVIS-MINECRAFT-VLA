@@ -4,9 +4,10 @@ Useful summary of the paper I've built to cache parts I  deemed important for th
 
 ## Training
 
-### Pre-training : 
-    
-(Traditional VLA training) : Regular next-token Imitation learning with all components hot
+### Base model : 
+
+Llava-Next or Qwen2-VL
+
 
 ### Post-training :
 
@@ -35,6 +36,7 @@ As displayed here :
 
 <img src="./views/architecture.png" width="600">
 
+
 With one note, the Causal Transformer is not the cross-attention kind, where we run cross attention on the llm's Q embeddings using the Vit's KV cache to compute attention, here, it simply scales the Vit's output embeddings to the llm's dimensionality and appends them at the end of the prompt output (using boundary tokens apparently e.g : <|vision_start|>, <|vision_end|>)
 and then runs regular masked self-attention
 
@@ -53,8 +55,6 @@ Prompt ---- -------------------------------------------------------------|
 ### Prompt : 
 
 The prompt include the text prompt as well as HISTORY of several previous Images (well their Vit + MLP output tokens) that are crucial for longer horizon tasks/multi-step reasoning
-
-Proposed Base models : Llava-Next or Qwen2-VL
 
 (Since this paper is a year old, we'll try to use better/more recent versions of those and see where it takes us)
 
