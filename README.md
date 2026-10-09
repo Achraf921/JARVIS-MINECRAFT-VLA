@@ -8,7 +8,8 @@ I will try to update the repo frequently rather than building everything locally
 
 ## Status
 
-Wrote down a pretty extensive summary of the paper after reading it in notes.md that caches pretty much everything I need to know to set up the post-training loops and inference
+Pretty much done with Phase 1's data processing, the dataset is up and ready for the training loop, we'll write the loop and whichever logging 
+we need for it before moving onto Phase 2
 
 ## Base model selection 
 

@@ -89,8 +89,14 @@ lr : cosine learning rate w/ warmup, 200 steps of warmup, lr_max = 5e-6 lr_min =
 
 precision : bfloat16 (cuda)
 
-token context-window (prompt + context + image) = 512
+token context-window (prompt + context + image) for Action-language (Phase 3) = 512
+token context-window for VL phases (1 and 2) =  3584
 
+for VL post-training, batch size of 2 per device was used with gradient accumulation of 4
+!! with 32 GPUs making for either 64-long batches with 4-pass gradient accumulation or a whole 256 batch with no gradient accc
+
+as for the Action post-training 8 batches per device with no gradient acc on every iteration yields again 256 batches on a single gpu
+(which we'll most likely mimic through gradient acc I guess since I am NOT renting 32 GPUs)
 ### Data augmentation startegy :
 
 ```
