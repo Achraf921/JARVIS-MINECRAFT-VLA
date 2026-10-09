@@ -60,7 +60,7 @@ The prompt include the text prompt as well as HISTORY of several previous Images
 
 ### Tokenization :
 
-Instead of re-training the base VLM's tokenizer, we just repurpose the 51 last frequently used tokens into action tokens with the following split :
+Instead of re-training the base VLM's tokenizer, we append tokens with the following split :
 - 22 mouse control tokens
 - 29 keyboard input tokens
 
