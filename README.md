@@ -1,4 +1,8 @@
-# JARVIS MINECRAFT VLA
+<div align="center">
+<h1> JARVIS MINECRAFT VLA</h1>
+
+<img src="./views/training.png" width="800">
+</div>
 
 ## Abstract
 
@@ -8,8 +12,7 @@ I will try to update the repo frequently rather than building everything locally
 
 ## Status
 
-Pretty much done with Phase 1's data processing, the dataset is up and ready for the training loop, we'll write the loop and whichever logging 
-we need for it before moving onto Phase 2
+Currently building the data processing helpers and the training loop for phase 2 of post-training
 
 ## Base model selection 
 
