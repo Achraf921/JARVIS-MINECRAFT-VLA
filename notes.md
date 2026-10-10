@@ -79,7 +79,7 @@ This illustration is highkey enough :
 
 364x644 (H,W)
 
-### Action space : 
+### VL & Action space Training : 
 
 <img src="./views/action_space.png" width="600">
 
@@ -97,6 +97,11 @@ for VL post-training, batch size of 2 per device was used with gradient accumula
 
 as for the Action post-training 8 batches per device with no gradient acc on every iteration yields again 256 batches on a single gpu
 (which we'll most likely mimic through gradient acc I guess since I am NOT renting 32 GPUs)
+
+The exact number of epochs/training steps is not specified anywhere in the paper (we are only given training hours), searching a bit deeper in the repo I was able to find the figure of 1 epoch for Phase 3 (action) but there is highkey nothing about Phase 1 and 2 so we'll have to figure that one out (I think we'll do one epoch)
+
+
+
 ### Data augmentation startegy :
 
 ```
