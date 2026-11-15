@@ -1,4 +1,6 @@
 .DS_Store
-.venv/
+.venv
 data_phase_one/
 data_phase_two/
+*.nosync
+phase_one_logs

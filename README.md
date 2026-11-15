@@ -12,8 +12,7 @@ I will try to update the repo frequently rather than building everything locally
 
 ## Status
 
-Currently building the data processing helpers and the training loop for phase 2 of post-training, fighting their hellish
-json parsing format
+Pretty much done with the pre-processing of phase II and it's training loop, looking at the final action phase training
 
 ## Base model selection 
 
