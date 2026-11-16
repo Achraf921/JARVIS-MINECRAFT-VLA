@@ -12,7 +12,9 @@ I will try to update the repo frequently rather than building everything locally
 
 ## Status
 
-Pretty much done with the pre-processing of phase II and it's training loop, looking at the final action phase training
+Pretty much done with the DataLoading part of Phase 3, we made sure to utilize CPU concurrency as we don't want to bottleneck on data loading, we now just need to write the Phase 3 training loop (pretty much the same as Phase 2)
+and the Fine-tuning stage training loop (same thing as phase three, on the same dataset, but with Action chunks of size 3
+instead of one) and set everything inside proper .py files, and we should be good to rent our GPU and let it train
 
 ## Base model selection 
 
