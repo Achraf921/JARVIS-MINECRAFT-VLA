@@ -12,9 +12,10 @@ Phase 3 is done, I just need the fine tuning loop (i,e same as phase three but w
 
 ## Status
 
-Pretty much done with the DataLoading part of Phase 3, we made sure to utilize CPU concurrency as we don't want to bottleneck on data loading, we now just need to write the Phase 3 training loop (pretty much the same as Phase 2)
-and the Fine-tuning stage training loop (same thing as phase three, on the same dataset, but with Action chunks of size 3
-instead of one) and set everything inside proper .py files, and we should be good to rent our GPU and let it train
+Truly done with the .py contained files (i.e the cleaned up version of our jupyter notebook's code ready to run) we ended up skipping 
+fine tuning as shit is already going to cost me a lot to run, but we hope to be able to get some results on one epoch over 
+all three phases's datasets, we will try this later using the paper's testing/inference environment when done training (in approximately
+30 H100 hours)
 
 ## Base model selection 
 

@@ -12,13 +12,16 @@ class plumbing_ds(torch.utils.data.Dataset):
         return self.table.num_rows
     def __getitem__(self, i):
         return self.table.slice(i, 1).to_pylist()[0]
+  
+def worker_init(_):
+    torch.set_num_threads(1)
 
-def build_targets(ids): # for the masked y 
+def build_targets(ids): # for the masked y
     target = torch.full_like(ids, -67)
     for r, line in enumerate(ids.tolist()):
         for i in range(len(line) - 2):
             if line[i] == 151644 and line[i+1] == 77091: # every <|im_start|>assistant
-                j = i + 3
+                j = i + 3 if line[i+2] == 198 else i + 2  # skip \n only if it didn't get merged into a bigger token
                 end = line.index(151645, j) # its own <|im_end|>
                 target[r, j:end+1] = ids[r, j:end+1]
     return target
