@@ -1,6 +1,9 @@
 .DS_Store
-.venv
-data_phase_one/
-data_phase_two/
-*.nosync
-phase_one_logs
+.venv/
+.venv.nosync/
+__pycache__/
+checkpoints/
+
+
+
+

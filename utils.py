@@ -107,4 +107,5 @@ def general_part_two_json_parser(json_filepath, root='./data_phase_two.nosync'):
 
 def build_mixed_batch_tensors(texts, paths, processor): # processor passed in this time utils.py can't see train.py's base_processor
     images = [Image.open(p).convert("RGB") for row in paths for p in row]
+    for im in images: im.thumbnail((640, 640))
     return processor(text=texts, images=images or None, padding=True, return_tensors="pt")   # `or None`: safe if a batch has no images

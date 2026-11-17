@@ -1,4 +1,6 @@
-import torchvision, json, torch, os, time, random, math, glob, re, gc
+import os
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+import torchvision, json, torch, time, random, math, glob, re, gc
 import pandas as pd
 import torch.nn.functional as F
 import pyarrow.parquet as pq
@@ -15,7 +17,6 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false" # somehow avoids adding more thre
 # phase 3
 
 # as I won't be watching over all 30 GPU hours, I first just want to try all loops with limited iterations :
-
 SMOKE = os.environ.get("SMOKE") == "1"
 
 wait_for_files("CraftJarvis/minecraft-vlp", "./data_phase_one.nosync", ["mc-qa-250312.jsonl"])
@@ -54,6 +55,10 @@ for line in lines:
     text = '<|im_start|>system\n'+sys+'<|im_end|>\n'+'<|im_start|>user\n'+user+'<|im_end|>\n'+'<|im_start|>assistant\n'+assistant+'<|im_end|>\n'
     texts.append(text)
 
+lens = [len(x) for x in tokenizer(texts)["input_ids"]]
+texts = [t for t, l in zip(texts, lens) if l <= 1400]
+print(f"[p1] kept {len(texts)}/{len(lens)} samples (<=1400 tokens)", flush=True)
+
 random.shuffle(texts)
 breaker = int(len(texts) * 0.99)
 breaker = int(len(texts)*0.99) # we only keep 1 percent for test set this time
@@ -74,7 +79,7 @@ optimizer = torch.optim.AdamW( # AdamW as in the paper
 )
 
 # Phase 1 specific, we will overwrite most of those in the resulting phases
-B = 16 # we want batches of 256, we will do gradient accumulation
+B = 8 # we want batches of 256, we will do gradient accumulation
 accum = 256 // B 
 max_step = (len(train_ds) // 256) * accum
 if SMOKE: max_step = 2 * accum
@@ -85,7 +90,7 @@ os.makedirs(log_dir, exist_ok=True)
 train_log = open(f"{log_dir}/train.csv", "w"); train_log.write("step,loss,lr\n")
 test_log  = open(f"{log_dir}/test.csv", "w");  test_log.write("step,loss\n")
 eval_every = 150
-
+t0 = time.time()
 # Phase 1 training loop
 base_model.train()
 for step in range(max_step):
@@ -94,11 +99,17 @@ for step in range(max_step):
     batch_tok, target = batch_tok.to(device), target.to(device)
     if step % accum == 0:
         optimizer.zero_grad()
-    with torch.autocast("cuda", dtype=torch.bfloat16):
-        logits = base_model(**batch_tok).logits
-    loss = F.cross_entropy(logits.float()[:, :-1].reshape(-1, logits.size(-1)),
+    try:
+        with torch.autocast("cuda", dtype=torch.bfloat16):
+            logits = base_model(**batch_tok).logits
+        loss = F.cross_entropy(logits[:, :-1].reshape(-1, logits.size(-1)),
                            target[:, 1:].reshape(-1), ignore_index=-67)
-    (loss / accum).backward()
+        (loss / accum).backward()
+    except torch.OutOfMemoryError:
+        print(f"[p1] OOM at micro-step {step}, skipped", flush=True)
+        logits = loss = None
+        torch.cuda.empty_cache()
+        continue
 
     if (step + 1) % accum == 0:
         opt_step = step // accum
@@ -109,8 +120,7 @@ for step in range(max_step):
 
         train_log.write(f"{opt_step},{loss.item()},{lr}\n"); train_log.flush()
         if opt_step % 10 == 0:
-            print(f"[p1] step {opt_step}/{max_step // accum} | loss {loss.item():.4f} | lr {lr:.2e}", flush=True)
-
+            print(f"[p1] step {opt_step}/{max_step // accum} | loss {loss.item():.4f} | lr {lr:.2e} | {(time.time()-t0)/60:.1f} min | ETA {(time.time()-t0)/(opt_step+1)*(max_step//accum - opt_step - 1)/3600:.2f} h", flush=True)
         last = step == max_step - 1
         if opt_step % eval_every == 0 or last:
             tl = test_loss(base_model, ((b, build_targets(b["input_ids"])) for b in
@@ -121,6 +131,7 @@ for step in range(max_step):
 
 path = f"checkpoints/{run_id}/phase1"
 base_model.save_pretrained(path); base_processor.save_pretrained(path)
+print(f"peak {torch.cuda.max_memory_allocated()/2**30:.1f} GiB"); torch.cuda.reset_peak_memory_stats()
 train_log.close(); test_log.close()
 # cleaning behind us 
 del optimizer, trainable_params
@@ -139,7 +150,11 @@ text4, path4 = general_part_two_json_parser(root+'mc-grounding-point-gui.jsonl')
 text5, path5 = general_part_two_json_parser(root+'mc-vqa-241102.jsonl')
 text = text + text2 + text3 + text4 + text5
 path = path + path2 + path3 + path4 + path5  # adding all 5 files together
-# let's put them into tuples to shuffle them while keeping order
+# let's put them into tuples to shuffle them while keeping orderi
+lens = [len(x) for x in tokenizer(text)["input_ids"]]
+keep = [i for i, l in enumerate(lens) if l <= 1536]
+text, path = [text[i] for i in keep], [path[i] for i in keep]
+
 tups = [(t,p) for t,p in zip(text,path)]
 random.shuffle(tups)
 # now that it is truly shuffled let's split them back
@@ -163,7 +178,7 @@ for p in base_model.model.visual.parameters():
     p.requires_grad = True
 trainable_params = [p for p in base_model.parameters() if p.requires_grad]
 optimizer = torch.optim.AdamW(trainable_params, betas=(0.9, 0.95), eps=1e-8, lr=5e-6, weight_decay=0)
-B = 8 # this time we will load images in memory so we do need smaller batches                                    
+B = 2 # this time we will load images in memory so we do need smaller batches                                    
 accum = 256 // B
 max_step = (len(txt_train) // 256) * accum
 if SMOKE: max_step = 2 * accum
@@ -172,7 +187,7 @@ log_dir = f"phase_two_logs.nosync/{run_id}"
 os.makedirs(log_dir, exist_ok=True)
 train_log = open(f"{log_dir}/train.csv", "w"); train_log.write("step,loss,lr\n")
 test_log  = open(f"{log_dir}/test.csv", "w");  test_log.write("step,loss\n")
-
+t0 = time.time()
 # Phase 2 training loopi
 base_model.train()
 for step in range(max_step):
@@ -181,11 +196,17 @@ for step in range(max_step):
     batch_tok, target = batch_tok.to(device), target.to(device)
     if step % accum == 0:
         optimizer.zero_grad()
-    with torch.autocast("cuda", dtype=torch.bfloat16):
-        logits = base_model(**batch_tok).logits
-    loss = F.cross_entropy(logits.float()[:, :-1].reshape(-1, logits.size(-1)),
+    try:
+        with torch.autocast("cuda", dtype=torch.bfloat16):
+            logits = base_model(**batch_tok).logits
+        loss = F.cross_entropy(logits[:, :-1].reshape(-1, logits.size(-1)),
                            target[:, 1:].reshape(-1), ignore_index=-67)
-    (loss / accum).backward()
+        (loss / accum).backward()
+    except torch.OutOfMemoryError:
+        print(f"[p2] OOM at micro-step {step}, skipped", flush=True)
+        logits = loss = None
+        torch.cuda.empty_cache()
+        continue
 
     if (step + 1) % accum == 0:
         opt_step = step // accum
@@ -196,8 +217,7 @@ for step in range(max_step):
 
         train_log.write(f"{opt_step},{loss.item()},{lr}\n"); train_log.flush()
         if opt_step % 10 == 0:
-            print(f"[p2] step {opt_step}/{max_step // accum} | loss {loss.item():.4f} | lr {lr:.2e}", flush=True)
-
+            print(f"[p2] step {opt_step}/{max_step // accum} | loss {loss.item():.4f} | lr {lr:.2e} | {(time.time()-t0)/60:.1f} min | ETA {(time.time()-t0)/(opt_step+1)*(max_step//accum - opt_step - 1)/3600:.2f} h", flush=True)
         last = step == max_step - 1
         if opt_step % eval_every == 0 or last:
             tl = test_loss(base_model, ((b, build_targets(b["input_ids"])) for b in
@@ -207,6 +227,7 @@ for step in range(max_step):
             print(f"[p2]   test loss {tl:.4f}", flush=True)
 
 path = f"checkpoints/{run_id}/phase2"
+print(f"peak {torch.cuda.max_memory_allocated()/2**30:.1f} GiB"); torch.cuda.reset_peak_memory_stats()
 base_model.save_pretrained(path); base_processor.save_pretrained(path)
 train_log.close(); test_log.close()
 # we then garbage all of our variables before phase 3 
@@ -231,7 +252,7 @@ for p in base_model.model.visual.parameters():
 trainable_params = [p for p in base_model.parameters() if p.requires_grad]
 optimizer = torch.optim.AdamW(trainable_params, betas=(0.9, 0.95), eps=1e-8, lr=5e-6, weight_decay=0)
 
-B = 8 # since I won't be watching, I am lowkey scared to OOM and loose hours of MONEY to lambda, I'd rather do 8 than try 16
+B = 32 # since I won't be watching, I am lowkey scared to OOM and loose hours of MONEY to lambda, I'd rather do 8 than try 16
 accum = 256 // B
 max_step = (len(train_ds) // 256) * accum # we'll try to go for one full epoch though this is gonna burn my pockets innit
 if SMOKE: max_step = 2 * accum
@@ -248,6 +269,7 @@ os.makedirs(log_dir, exist_ok=True)
 train_log = open(f"{log_dir}/train.csv", "w"); train_log.write("step,loss,lr\n")
 test_log  = open(f"{log_dir}/test.csv", "w");  test_log.write("step,loss\n")
 it = iter(loader)
+t0 = time.time()
 # Phase 3 training loop
 base_model.train()
 for step in range(max_step):
@@ -259,12 +281,17 @@ for step in range(max_step):
     batch_tok, target = batch_tok.to(device), target.to(device)
     if step % accum == 0:
         optimizer.zero_grad()
-    with torch.autocast("cuda", dtype=torch.bfloat16):
-        logits = base_model(**batch_tok).logits
-    loss = F.cross_entropy(logits.float()[:, :-1].reshape(-1, logits.size(-1)),
+    try:
+        with torch.autocast("cuda", dtype=torch.bfloat16):
+            logits = base_model(**batch_tok).logits
+        loss = F.cross_entropy(logits[:, :-1].reshape(-1, logits.size(-1)),
                            target[:, 1:].reshape(-1), ignore_index=-67)
-    (loss / accum).backward()
-
+        (loss / accum).backward()
+    except torch.OutOfMemoryError:
+        print(f"[p3] OOM at micro-step {step}, skipped", flush=True)
+        logits = loss = None
+        torch.cuda.empty_cache()
+        continue
     if (step + 1) % accum == 0:
         opt_step = step // accum
         lr = get_lr(opt_step * accum)
@@ -274,8 +301,7 @@ for step in range(max_step):
 
         train_log.write(f"{opt_step},{loss.item()},{lr}\n"); train_log.flush()
         if opt_step % 10 == 0:
-            print(f"[p3] step {opt_step}/{max_step // accum} | loss {loss.item():.4f} | lr {lr:.2e}", flush=True)
-
+            print(f"[p3] step {opt_step}/{max_step // accum} | loss {loss.item():.4f} | lr {lr:.2e} | {(time.time()-t0)/60:.1f} min | ETA {(time.time()-t0)/(opt_step+1)*(max_step//accum - opt_step - 1)/3600:.2f} h", flush=True)
         last = step == max_step - 1
         if opt_step % eval_every == 0 or last:
             tl = test_loss(base_model, (collate([test_ds[j] for j in range(i, min(i+B, len(test_ds)))], base_processor)[:2]
@@ -288,6 +314,7 @@ for step in range(max_step):
             base_model.save_pretrained(ckpt); base_processor.save_pretrained(ckpt)
 
 path = f"checkpoints/{run_id}/phase3/final"
+print(f"peak {torch.cuda.max_memory_allocated()/2**30:.1f} GiB"); torch.cuda.reset_peak_memory_stats()
 base_model.save_pretrained(path); base_processor.save_pretrained(path)
 train_log.close(); test_log.close()
 # done

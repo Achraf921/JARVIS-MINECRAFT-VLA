@@ -12,10 +12,7 @@ Phase 3 is done, I just need the fine tuning loop (i,e same as phase three but w
 
 ## Status
 
-Truly done with the .py contained files (i.e the cleaned up version of our jupyter notebook's code ready to run) we ended up skipping 
-fine tuning as shit is already going to cost me a lot to run, but we hope to be able to get some results on one epoch over 
-all three phases's datasets, we will try this later using the paper's testing/inference environment when done training (in approximately
-30 H100 hours)
+Now done with the training too, it costed us a bit more than 30 GPU hours on a H100, we plot some of our loss curves, we could have logged those better as phase 2 especially has variance as it is a mix of 5 datasets which makes for an ugly curve, but now the next step is to run the MCU benchmark and then get inference image and see if we were actually successful !
 
 ## Base model selection 
 
