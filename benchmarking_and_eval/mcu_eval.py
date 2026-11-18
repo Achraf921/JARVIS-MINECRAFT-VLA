@@ -377,9 +377,11 @@ def run_reward_episode(policy, root, path, out_dir, max_frames, show_actions, li
         InitInventoryCallback(cfg.init_inventory,
                               inventory_distraction_level=cfg.inventory_distraction_level,
                               equip_distraction_level="normal"),
-        CommandsCallback(getattr(cfg, "command", [])),
         RecordCallback(record_path=out_dir, fps=30, show_actions=show_actions),
     ]
+    # MineStudio bug: CommandsCallback with an empty list re-wraps an already-wrapped obs -> KeyError 'pov'
+    if getattr(cfg, "command", None):
+        callbacks.insert(4, CommandsCallback(list(cfg.command)))
     if cfg.mobs:
         callbacks.append(SummonMobsCallback(cfg.mobs))
 
@@ -430,8 +432,8 @@ def run_turbo_episode(policy, path, out_dir, max_frames, show_actions):
     env = MinecraftSim(
         action_type="env", obs_size=(640, 360), render_size=(640, 360),
         camera_config=CameraConfig(**CAMERA_CFG),
-        callbacks=[CommandsCallback(cfg.get("custom_init_commands", [])),
-                   RecordCallback(record_path=out_dir, fps=30, show_actions=show_actions)],
+        callbacks=([CommandsCallback(cfg["custom_init_commands"])] if cfg.get("custom_init_commands") else [])
+                  + [RecordCallback(record_path=out_dir, fps=30, show_actions=show_actions)],
     )
     obs, info = env.reset()
     env.action_type = "agent"
