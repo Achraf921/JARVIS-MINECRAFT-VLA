@@ -1,0 +1,17 @@
+torch
+torchvision
+transformers>=4.57
+accelerate
+minestudio
+ray
+hydra-core
+omegaconf
+pyyaml
+numpy<2
+pillow
+opencv-python-headless
+av
+qwen-vl-utils
+openai
+pyarrow<20
+huggingface_hub
