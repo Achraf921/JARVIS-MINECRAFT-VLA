@@ -4,6 +4,12 @@
 __pycache__/
 checkpoints/
 .venv
+eval_logs.nosync/
+train.log
+phase_one_logs.nosync/
+phase_two_logs.nosync/
+phase_three_logs.nosync/
+.cache/
 
 
 
